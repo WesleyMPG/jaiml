@@ -1,0 +1,8 @@
+JaimlManager
+-----------------
+
+.. autoclass:: jaiml.JaimlManager
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
