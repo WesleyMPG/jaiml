@@ -6,4 +6,4 @@ Jinja2 which is a python template engine.
 
 __all__ = []
 
-from jaiml.manager import JaimlManager, accepted_file_ext
+from JaimlManager import JaimlManager, accepted_file_ext

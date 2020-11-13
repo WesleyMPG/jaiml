@@ -9,4 +9,5 @@ setup(
   email='wesley.mprog@gmail.com',
   zip_safe=False,
   packages=find_packages(exclude=['tests']),
+  setup_requires=['Jinja2>=2.11.2']
 )
