@@ -70,8 +70,7 @@ class JaimlManager(object):
   
   @footer.setter
   def footer(self, footer):
-    
-    if type(header) != str:
+    if type(footer) != str:
       raise TypeError(f'must be a str, not {type(footer)}.')
     self.__footer = footer
 
