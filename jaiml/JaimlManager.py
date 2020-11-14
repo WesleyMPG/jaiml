@@ -1,6 +1,7 @@
 import jinja2 as j
-from os.path import curdir, abspath, splitext
+from os.path import curdir, abspath, splitext, join
 from functools import wraps
+from pathlib import Path
 
 
 __all__ = ['JaimlManager']
@@ -16,22 +17,27 @@ accepted_file_ext = [
 class JaimlManager(object):
   """This class has methods to register and manage jinja-aiml(jaiml) templates.
 
-  JaimlManager will register any function that uses the decorator :meth:`marker`
+  JaimlManager will register any function that uses the decorator :meth:`provider`
   as a jaiml provider, which means that function follow the pattern decribed in
-  :meth:`marker`.
+  :meth:`provider`.
 
   :param brain_file: If True a file with the output aiml will be generated.
   :type brain_file: bool, defauts to True
-  :param templates_dir_name: path to templates folder.
-  :type templates_dir_name: str, defaults to 'jinja-templates'
+  :param templates_dir: path to templates folder.
+  :type templates_dir: str, defaults to 'jinja-templates'
+  :param output_dir: path to where output files should be placed
+  :type output_dir: str, defaults to 'out'
 
   """
 
-  def __init__(self, module_name, brain_file=True, templates_dir_name='jinja-templates'):
-    self.all_defined_jaiml = []  # Stores all functions that use marker() 
+  def __init__(self, module_name, brain_file=True, 
+                templates_dir='jinja-templates',
+                output_dir='out'):
+    self.jaiml_providers_list = []  # Stores all functions that use provider() 
     self.__brain_file = brain_file
     self.module_name = module_name
-    self.__templates_dir_name = templates_dir_name
+    self.__templates_dir = templates_dir
+    self.__output_dir = output_dir
     self.ENVIROMENT = self.__create_jinja_enviroment()
     self.__header = '<aiml version="1.0" encoding="UTF-8">\n'
     self.__footer = '\n</aiml>'
@@ -74,11 +80,23 @@ class JaimlManager(object):
       raise TypeError(f'must be a str, not {type(footer)}.')
     self.__footer = footer
 
+  @property
+  def output_dir(self):
+    return self.__output_dir
+  
+  @output_dir.setter
+  def output_dir(self, dir_name):
+    path = Path(join('.', dir_name))
+    if path.exists():
+      self.__output_dir = dir_name
+    else:
+      raise Exception(f'Invalid path: {path}')
+
   def __create_jinja_loader(self):
     
     loader = None
     try:
-      loader = j.PackageLoader(self.module_name, self.__templates_dir_name)
+      loader = j.PackageLoader(self.module_name, self.__templates_dir)
     except ModuleNotFoundError as exc:
       pass
     finally:
@@ -104,7 +122,7 @@ class JaimlManager(object):
     :rtype: str
     """
     output = self.header
-    for func in self.all_defined_jaiml:
+    for func in self.jaiml_providers_list:
       output += func()
     output += self.footer
     if self.brain_file:
@@ -112,39 +130,41 @@ class JaimlManager(object):
     return output
 
   def _generate_file(self, buffer, file_name):
-    with open(file_name, 'w') as file:
+    with open(join(self.__output_dir, file_name), 'w') as file:
       file.write(buffer)
 
-  def generate_file(self, template_name, headerless=True, ext='.aiml'):
+  def generate_file(self, template_name, headerless=False, ext='.aiml'):
     """Generates a file with the output of a jaiml provider function.
 
     :param str template_name: Name of the function to have a file generated.
-    :param headerless: If False the generated file will have, defaults to True.
+    :param headerless: If False the generated file will have the defined header, defaults to False.
     :type headerless: bool, optional
     :param str ext: output file extension, defaults to '.aiml'.
 
     Example:
       .. code-block:: python
 
-          @jaiml_manager_instance.marker
+          @jaiml_manager_instance.provider
           def foo():
             return 'some_file.xml', vars_dict
 
           jaiml_manager_instance.generate_file('foo')
     """
-    for i in self.all_defined_jaiml:
+    if ext[0] != '.':
+      ext = '.' + ext
+    for i in self.jaiml_providers_list:
       if i.__name__ == template_name:
         output = i() if headerless else self.header + i() + self.footer
         self._generate_file(output, template_name + ext)
 
-  def generate_all(self, headerless=True, ext='.aiml'):
+  def generate_all(self, headerless=False, ext='.aiml'):
     """Does the same as :meth:`generate_file()` but to all jaiml provider functions.
     """
-    for i in self.all_defined_jaiml:
+    for i in self.jaiml_providers_list:
       output = i() if headerless else self.header + i() + self.footer
       self._generate_file(output, i.__name__ + ext)
 
-  def marker(self, function):
+  def provider(self, function):
     """This method is a decorator that marks a function as a jinja-aiml provider.
 
       It must be a function which returs two things:
@@ -197,5 +217,5 @@ class JaimlManager(object):
       t = self.__create_template(buffer)
       return t.render(**vars)
 
-    self.all_defined_jaiml.append(wrapper)
+    self.jaiml_providers_list.append(wrapper)
     return wrapper
